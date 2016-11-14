@@ -111,6 +111,20 @@ def getMises(what,tensArray):
 	eq = Mises(what,np.reshape(tCompAve,(3,3)))
 	return eq
 
+def getMisesSC(what,tensArray):
+	''' Find equivalent of the tensor at each element then average.'''
+
+	numElements = len(tensArray[:,0])
+	eqRateField = np.zeros(numElements)
+
+	# Loop over elements and find equivalent
+	for iel in range(numElements):
+		eqRateField[iel] = Mises(what,np.reshape(tensArray[iel,:],(3,3)))
+
+	# Average over elements
+	eq = np.average(eqRateField)
+	return eq
+
 def odb2ss(fileName,f,phSets,instanceName=None,mySetName=None):
 	''' Read stress, strain tensors from the odb for
 		all available time frames, average the components over
@@ -198,16 +212,18 @@ def odb2ss(fileName,f,phSets,instanceName=None,mySetName=None):
 	rate = getFullTensorData(tensor)
 
 	# Get equivalent strain rate
-	eqRate = getMises('strain',rate)
-
+	# eqRate = getMises('strain',rate)
+	eqRate = getMisesSC('strain',rate)
 
 	# Get equivalent strain rate per feature
 	if ph != None:
 		numPh = len(np.unique(ph))
 		eqRatePh = np.zeros((numPh))
+		# eqRatePhSC = np.zeros((numPh))
 		for iph in range(numPh):
 			ind = ph == iph+1
-			eqRatePh[iph] = getMises('strain',rate[ind,:])
+			# eqRatePh[iph] = getMises('strain',rate[ind,:])
+			eqRatePh[iph] = getMisesSC('strain',rate[ind,:])
 	else:
 		eqRatePh = None
 
@@ -227,7 +243,7 @@ import glob
 # Set names containing features
 phSets = ['PHASE_1','PHASE_2']
 
-ind = '02'
+ind = '01'
 
 # Find odb files
 files2search = '%s_*.odb' % ind
@@ -253,14 +269,18 @@ for i,f in enumerate(odbFiles):
 	msg = 'Done with %s, spent %.2f min\n\n' % (f, (toc-tic)/60.0)
 	stafile.write(msg)
 
+
 	# Save results to npy
 	np.save('stress_' + fname,eqStress)
-	np.save('strain_' + fname,eqStrain)
+	# np.save('strain_' + fname,eqStrain)
 	np.save('rate_' + fname,eqRate)
+	# np.save('rateSC_' + fname,eqRateSC)
 	if phSets:
 		np.save('ph_' + fname,ph)
 		for i in range(len(np.unique(ph))):
-			istr = 'rate_ph-%d_%s' % (i+1,fname)
-			np.save(istr,eqRatePh[i])
+			istr = 'chi-%d_%s' % (i+1,fname)
+			np.save(istr,eqRatePh[i]/eqRate)
+			# istr = 'chiSC-%d_%s' % (i+1,fname)
+			# np.save(istr,eqRatePh[i]/eqRate)
 
 stafile.close()
